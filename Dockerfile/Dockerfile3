@@ -1,0 +1,68 @@
+FROM debian:jessie
+
+MAINTAINER Bruno Andrade <bgabriel.andrade.visconti@gmail.com>
+
+
+
+RUN echo "deb http://http.debian.net/debian jessie-backports main" > /etc/apt/sources.list.d/jessie-backports.list
+RUN apt-get update && apt-get install -yq --no-install-recommends \
+    git \
+    wget \
+    curl \
+    build-essential \
+    bowtie2 \
+    r-base \
+    git \
+    ca-certificates \
+    bzip2 \
+    unzip \
+    sudo \
+    locales \
+    libatlas3-base \
+    libfreetype6-dev \
+    && apt-get clean
+
+#Install OpenJDK8
+RUN apt-get install -t jessie-backports openjdk-8-jre-headless --yes
+
+# Configure environment
+ENV CONDA_DIR /opt/conda
+ENV PATH $CONDA_DIR/bin:$PATH
+ENV SHELL /bin/bash
+ENV NB_USER bruno
+ENV NB_UID 1000
+ENV LC_ALL C.UTF-8
+ENV LANG C.UTF-8
+
+# Create jovyan user with UID=1000 and in the 'users' group
+RUN useradd -m -s /bin/bash -N -u $NB_UID $NB_USER && \
+    mkdir -p /opt/conda && \
+    chown bruno /opt/conda
+
+# Setup jovyan home directory
+RUN mkdir /home/$NB_USER/work && \
+    mkdir /home/$NB_USER/.local
+
+RUN cd /tmp && \
+    mkdir -p $CONDA_DIR && \
+    wget --quiet https://repo.continuum.io/miniconda/Miniconda-latest-Linux-x86_64.sh && \
+    /bin/bash Miniconda-latest-Linux-x86_64.sh -f -b -p $CONDA_DIR && \
+    rm Miniconda-latest-Linux-x86_64.sh && \
+    $CONDA_DIR/bin/conda install --yes conda
+
+RUN wget https://data.qiime2.org/distro/core/qiime2-2018.2-py35-linux-conda.yml
+# Install Jupyter notebook as jovyan
+RUN conda install --yes --quiet \
+  
+    numpy \
+    matplotlib=1.4.3 \
+    pandas \
+    scipy \
+    && conda clean -yt
+
+RUN conda env create -n qiime2 --file qiime2-2018.2-py35-linux-conda.yml
+
+RUN curl -fsSL get.nextflow.io | bash && \
+        mv nextflow /opt/
+#RUN module load anaconda
+RUN  /opt/conda/bin/./activate qiime2
