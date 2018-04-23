@@ -101,3 +101,14 @@ RUN Rscript -e "install.packages('devtools', repos = 'http://cran.us.r-project.o
     Rscript -e "install.packages('RJSONIO', repos = 'http://cran.us.r-project.org')" && \
     Rscript -e "devtools::install_github('biom', 'joey711')"
 
+#Install the last two software, namely FastQC and BBmap
+RUN wget -q -O fastqc.zip http://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.11.5.zip && \
+    unzip fastqc.zip -d /opt/ && \
+    chmod 755 /opt/FastQC/fastqc && \
+    rm fastqc.zip
+
+RUN wget -q -O BBMap_37.09.tar.gz https://sourceforge.net/projects/bbmap/files/BBMap_37.09.tar.gz && \
+	tar -xzf BBMap_37.09.tar.gz && \
+	mv bbmap/ /opt/ && \
+	rm BBMap_37.09.tar.gz
+

@@ -236,8 +236,7 @@ process profileTaxa {
 
 #	Rscript --vanilla Scripts/dada3.R $infile $params.reads_R1`basename $infile | sed 's/R1/R2/'` `basename $infile | sed 's/.fastq/.fq.gz/'` `basename $infile | sed 's/.fastq/.fq.gz/'| sed 's/R1/R2/'`
 	#echo $infile $params.reads_R1`basename $infile | sed 's/R1/R2/'` `basename $infile | sed 's/.fastq/.fq.gz/'` `basename $infile | sed 's/.fastq/.fq.gz/'| sed 's/R1/R2/'` >> ../../../teste2.txt
-	Rscript --vanilla ~/16sMP/Scripts/dada3.R $params.reads_R1 ../../../Output.tsv
-
+	Rscript --vanilla /home/cafofo/Documentos/Pipeline/Scripts/dada3.R $params.reads_R1 $params.outdir
 
         """
 }
