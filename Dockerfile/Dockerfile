@@ -13,9 +13,6 @@ ENV DEBIAN_FRONTEND noninteractive
 RUN echo "deb http://http.debian.net/debian jessie-backports main" > /etc/apt/sources.list.d/jessie-backports.list
 
 
-
-
-
     
 RUN apt-get update && apt-get install -yq --no-install-recommends \
     git \
@@ -36,6 +33,7 @@ RUN apt-get update && apt-get install -yq --no-install-recommends \
     libpcre3 \
     liblzma-dev \
     curl \
+    libssl-dev \
     && apt-get clean
 RUN echo "en_US.UTF-8 UTF-8" > /etc/locale.gen && \
     locale-gen
@@ -68,38 +66,48 @@ RUN cd /tmp && \
     rm Miniconda-latest-Linux-x86_64.sh && \
     $CONDA_DIR/bin/conda install --yes conda
 
-# Install Jupyter notebook as jovyan
+# Install Jupyter notebook as bruno
 RUN conda install --yes --quiet \
     numpy \
-    matplotlib=1.4.3 \
+    matplotlib \
     pandas \
     scipy \
-    r\
+    r=3.4.1 \
     && conda clean -yt
-#Install R libraries
-RUN Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("dada2")' && \
-    Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("ggplot2")' && \
-    Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("ShortRead")'
+
+#RUN conda  update -c main -c r
+
+#Install Qiime
 
 RUN apt install -y --force-yes libsm6 libxext6 libxrender-dev
 RUN pip install --upgrade pip
 RUN pip install IPython==5.0
 RUN pip install wheel
-RUN pip install qiime
+RUN pip install qiime 
+RUN pip install scikit-bio
+
+#Install R libraries
+
+RUN Rscript -e "install.packages('optparse', repos = 'http://cran.us.r-project.org')" && \
+    Rscript -e "install.packages('devtools', repos = 'http://cran.us.r-project.org')" && \
+    Rscript -e "install.packages('RcppParallel', repos = 'http://cran.us.r-project.org')" && \
+    Rscript -e "install.packages('RJSONIO', repos = 'http://cran.us.r-project.org')" && \
+    Rscript -e "devtools::install_github('biom', 'joey711')"
+
+#Install Bioconductor libraries
+
+RUN Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("ggplot2")' && \
+    Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("ShortRead")' && \
+    Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("dada2")' && \
+    Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("DESeq2")' && \
+    Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("rhdf5")'
+
 
 RUN apt-get install -t jessie-backports openjdk-8-jre-headless --yes
 
 RUN curl -fsSL get.nextflow.io | bash && \
         mv nextflow /opt/
 RUN sed -ri 's/backend      : Qt4Agg/backend      : agg/g' /opt/conda/lib/python2.7/site-packages/matplotlib/mpl-data/matplotlibrc
-RUN Rscript -e "install.packages('optparse', repos = 'http://cran.us.r-project.org')"
-RUN pip install scikit-bio
-RUN Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("DESeq2")'
-RUN apt-get install libssl-dev --yes
-RUN Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("rhdf5")'
-RUN Rscript -e "install.packages('devtools', repos = 'http://cran.us.r-project.org')" && \
-    Rscript -e "install.packages('RJSONIO', repos = 'http://cran.us.r-project.org')" && \
-    Rscript -e "devtools::install_github('biom', 'joey711')"
 
 #Install the last two software, namely FastQC and BBmap
 RUN wget -q -O fastqc.zip http://www.bioinformatics.babraham.ac.uk/projects/fastqc/fastqc_v0.11.5.zip && \
@@ -112,3 +120,5 @@ RUN wget -q -O BBMap_37.09.tar.gz https://sourceforge.net/projects/bbmap/files/B
 	mv bbmap/ /opt/ && \
 	rm BBMap_37.09.tar.gz
 
+
+ENV PATH $PATH:/opt/::/opt/FastQC/:/opt/bbmap

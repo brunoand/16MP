@@ -83,7 +83,7 @@ System.out.println(params.outdir)
 
 
 //Creates working dir
-workingpath = params.outdir + "/" + params.prefix + "/"
+workingpath = params.outdir
 workingdir = file(workingpath)
 if( !workingdir.exists() ) {
     if( !workingdir.mkdirs() ) 	{
@@ -92,14 +92,14 @@ if( !workingdir.exists() ) {
 }
 
 //Creating other folders
-matrixpath = params.outdir + "/" + params.prefix + "/Matrix"
-abundancepath = params.outdir + "/" + params.prefix + "/Matrix/Abundance"
-read_count_path = params.outdir + "/" + params.prefix + "/Matrix/Read_count"
-plotpath = params.outdir + "/" + params.prefix + "/Plots"
+matrixpath = params.outdir + "/Matrix"
+QCpath = params.outdir + "/QC"
+Fastq_path = params.outdir + "/Fastq"
+Binpath = params.outdir + "/Bin"
 matrixdir = file(matrixpath)
-abundancedir = file(abundancepath)
-read_count_dir = file(read_count_path)
-plotdir = file(plotpath)
+QC_dir = file(QCpath)
+Fastq_dir = file(Fastq_path)
+Bindir = file(Binpath)
 
 
 if( !matrixdir.exists() ) {
@@ -107,25 +107,25 @@ if( !matrixdir.exists() ) {
         exit 1, "Cannot create working directory: $matrixpath"
     } 
 }
-if( !abundancedir.exists() ) {
-    if( !abundancedir.mkdirs() ) 	{
-        exit 1, "Cannot create working directory: $abundancepath"
+if( !QC_dir.exists() ) {
+    if( !QC_dir.mkdirs() ) 	{
+        exit 1, "Cannot create working directory: $QCpath"
     } 
 }
-if( !read_count_dir.exists() ) {
-    if( !read_count_dir.mkdirs() ) 	{
-        exit 1, "Cannot create working directory: $read_count_path"
-    } 
+if( !Fastq_dir.exists() ) {
+    if( !Fastq_dir.mkdirs() ) 	{
+        exit 1, "Cannot create working directory: $Fastq_path"
+ } 
 }
-if( !plotdir.exists() ) {
-    if( !plotdir.mkdirs() ) {
-	exit 1, "Cannot creat working directory: $plotpath"
-    }
-}
+
+
+
+
+
 
 
 //Creates main log file
-mylog = file(params.outdir + "/" + params.prefix + "/" + params.prefix + ".log")
+mylog = file(params.outdir +  "log.txt")
 
 //Logs headers
 mylog <<  """---------------------------------------------
@@ -199,9 +199,12 @@ Library layout? $params.library
 	Multiple  plots are generated to show average phred quality scores and other metrics.
 */
 
-
-	rawreads = Channel.fromPath(params.reads_R1) /**.buffer(size: 2, remainder: true)*/
-
+	if (params.library == "paired-end") {
+		rawreads = Channel.fromFilePairs(params.reads_R1 + '*R{1,2}*fastq')
+	}
+	else {
+		rawreads = Channel.fromPath(params.reads_R1 + '*.fastq')
+	}
 
 
 
@@ -214,29 +217,196 @@ Library layout? $params.library
 
         Metaphlan2 will be used to anotate shotgun reads in taxonomic levels, this step will generate 3 outputs, a matrix containing the taxonomic levels, relative abundaces, read counts for each clade, sample size and average genome size in the working file and two others containing only the relative abundance and the read_counts in Matrix/Abundance and Matrix/Read_counts, respectively.
 */
+mocktrim = Channel.from("null")
+
+        if (params.library == "paired-end") {
+                to_trim = Channel.fromFilePairs(params.reads_R1 + '*R{1,2}*fastq')
+        }
+        else {
+                to_trim = Channel.fromPath(params.reads_R1 + '*.fastq')
+        }
 
 
-process profileTaxa {
 
-
-
-
-
-	
+process trim {
+	publishDir Fastq_dir, mode: 'copy', pattern: "*{_trimmed_R*.fq,html}"
 	input:
-	file infile from rawreads
+	set val(id), file(reads1), file(reads2) from to_trim
+	file(adapters) from file(params.adapters)
+	file(artifacts) from file(params.artifacts)
+	file(phix174ill) from file(params.phix174ill)
+
+	output:
+	file("*_trimmed*.fq") into todecontaminate
+	file("*_trimmed*.fq") into trimmedreads
+	file "*_fastqc.html"
+	val Fastq_dir into to_bin
+	when:
+	params.mode == "QC" || params.mode == "complete"
+      script:
+      """
+	#Measures execution time
+	sysdate=\$(date)
+	starttime=\$(date +%s.%N)
+	echo \"Performing Quality Control. STEP 2 [Trimming] at \$sysdate\" >>  $mylog
+	echo \" \" >>  $mylog
+	#Sets the maximum memory to the value requested in the config file
+	maxmem=\$(echo ${task.memory} | sed 's/ //g' | sed 's/B//g')
+	#Defines command for trimming of adapters and low quality bases
+
+	if [ \"$params.library\" = \"paired-end\" ]; then
+		CMD=\"bbduk.sh -Xmx\"\$maxmem\" in=${reads1[0]} in2=${reads1[1]} out=${id}_trimmed_R1_tmp.fq out2=${id}_trimmed_R2_tmp.fq outs=${id}_trimmed_singletons_tmp.fq ktrim=r k=$params.kcontaminants mink=$params.mink hdist=$params.hdist qtrim=rl trimq=$params.Quality  minlength=$params.minlength ref=$adapters qin=$params.Pcoding threads=${task.cpus} tbo tpe ow\"
+	else
+		CMD=\"bbduk.sh -Xmx\"\$maxmem\" in=$reads1 out=`basename $reads1 | sed -r 's/_R.{1,}//'`_trimmed_tmp.fq ktrim=r k=$params.kcontaminants mink=$params.mink hdist=$params.hdist qtrim=rl trimq=$params.Quality  minlength=$params.minlength ref=$adapters qin=$params.Pcoding threads=${task.cpus} tbo tpe ow\"
+	fi
+	#Trims adapters and low quality bases	
+	exec \$CMD 2>&1 | tee tmp.log
 	
+	#Logs some figures about sequences passing trimming
+	echo  \"BBduk's trimming stats (trimming adapters and low quality reads): \" >>  $mylog
+	sed -n '/Input:/,/Result:/p' tmp.log >>  $mylog
+	echo \" \" >>  $mylog			
+	if [ \"$params.library\" = \"paired\" ]; then
+		unpairedR=\$(wc -l ${id}_trimmed_singletons_tmp.fq | cut -d\" \" -f 1)
+		unpairedR=\$((\$unpairedR/4))
+		echo  \"\$unpairedR singleton reads whose mate was trimmed shorter preserved\" >>  $mylog
+		echo \" \" >>  $mylog
+	fi
 	
+	#Logs version of the software and executed command (BBMap prints on stderr)
+	version=\$(bbduk.sh --version 2>&1 >/dev/null | grep \"BBMap version\") 
+	echo \"Using bbduk.sh in \$version \" >>  $mylog
+	echo \"Using adapters in $adapters \" >>  $mylog
+	echo \"Using synthetic contaminants in $params.phix174ill and in $params.artifacts \" >>  $mylog
+	
+			
+	if [ \"$params.library\" = \"paired-end\" ]; then
+		unpairedR=\$(wc -l ${id}_trimmed_singletons_tmp.fq | cut -d\" \" -f 1)
+		unpairedR=\$((\$unpairedR/4))
+		echo  \"\$unpairedR singleton reads whose mate was trimmed shorter preserved\" >>  $mylog
+		echo \" \" >>  $mylog
+	fi
+	#Defines command for removing synthetic contaminants
+	if [ \"$params.library\" = \"paired-end\" ]; then
+		bbduk.sh -Xmx\"\$maxmem\" in=${id}_trimmed_R1_tmp.fq in2=${id}_trimmed_R2_tmp.fq out=${id}_trimmed_R1.fq out2=${id}_trimmed_R2.fq k=31 ref=$phix174ill,$artifacts qin=$params.Pcoding threads=${task.cpus} ow
+		fastqc --quiet --noextract --format fastq --outdir=. --threads ${task.cpus} ${id}_trimmed_R1.fq ${id}_trimmed_R2.fq
+	else
+		bbduk.sh -Xmx\"\$maxmem\" in=`basename $reads1 | sed -r 's/_R.{1,}//'`_trimmed_tmp.fq out=`basename $reads1 | sed -r 's/_R.{1,}//'`_trimmed.fq k=31 ref=$phix174ill,$artifacts qin=$params.Pcoding threads=${task.cpus} ow
+		fastqc --quiet --noextract --format fastq --outdir=. --threads ${task.cpus} ${id}_trimmed_R1.fq
+	fi
+	#Removes synthetic contaminants and logs some figures (singleton read file, 
+	#that exists iif the library layout was 'paired')
+	if [ \"$params.library\" = \"paired-end\" ]; then
+		bbduk.sh -Xmx\"\$maxmem\" in=${id}_trimmed_singletons_tmp.fq out=${id}_trimmed_singletons.fq k=31 ref=$phix174ill,$artifacts qin=$params.Pcoding threads=${task.cpus} ow
+		
+		
+fi
+	
+	#Removes tmp files. This avoids adding them to the output channels
+	rm -rf ${id}_trimmed*_tmp.fq
 
 
-       
+
+	"""
+}
+
+// ------------------------------------------------------------------------------
+//                    		    Binning
+// ------------------------------------------------------------------------------
+
+process binning {
+        publishDir workingdir, mode: 'copy', pattern: "*.txt"
+        input:
+        file(path) from to_bin.take(1)
+        
+        output:
+        file "OTUs.txt"
 
 	script:
 	"""
+        #Measures execution time
+        sysdate=\$(date)
+        starttime=\$(date +%s.%N)
+        echo \"Performing Quality Control. STEP 2 [Trimming] at \$sysdate\" >>  $mylog
+        echo \" \" >>  $mylog
 
-#	Rscript --vanilla Scripts/dada3.R $infile $params.reads_R1`basename $infile | sed 's/R1/R2/'` `basename $infile | sed 's/.fastq/.fq.gz/'` `basename $infile | sed 's/.fastq/.fq.gz/'| sed 's/R1/R2/'`
-	#echo $infile $params.reads_R1`basename $infile | sed 's/R1/R2/'` `basename $infile | sed 's/.fastq/.fq.gz/'` `basename $infile | sed 's/.fastq/.fq.gz/'| sed 's/R1/R2/'` >> ../../../teste2.txt
-	Rscript --vanilla /home/cafofo/Documentos/Pipeline/Scripts/dada3.R $params.reads_R1 $params.outdir
 
-        """
+
+	CMD=\"Rscript --vanilla /storage/raid/home/m991833/16sMP/Pipeline/Scripts/dada3.R $params.outdir$path OTUs.txt\"
+	exec \$CMD 2>&1 | tee tmp.log
+
+	#Logs some data about sequence dereplication
+	echo  \"Dada2 dereplication stats: \" >> $mylog
+	echo \" \" >>  $mylog
+	cat tmp.log >> $mylog
+	#sed -n '/Dereplicating sequence in:/,/Duplicates Found:/p' tmp.log >>  $mylog
+
+	#echo $params.outdir$path > teste4.txt
+	"""
+
 }
+
+// ------------------------------------------------------------------------------
+//                     Quality assessment and visualization                    
+// ------------------------------------------------------------------------------
+
+
+//Creates the channel which performs the QC
+toQC = rawreads 
+
+//Process performing all the Quality Assessment
+process qualityAssessment {
+	
+	publishDir  QC_dir, mode: 'copy', pattern: "*.{html,txt}"
+	  	
+	input:
+   	set val(step), file(reads), val(label), val(stem) from toQC
+	output:
+	file "*_fastqc.html" 
+	when:
+	params.mode == "QC" | params.mode == "complete"
+   	script:
+	"""	
+	
+	#Logs version of the software and executed command
+	version=\$(fastqc --version) 
+	fastqc --quiet --noextract --format fastq --outdir=. --threads ${task.cpus} $reads
+	
+	"""	
+}
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+	
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
