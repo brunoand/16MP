@@ -304,10 +304,10 @@ fi
 }
 
 
-if (params.mode == "Taxonomic") {
-	to_bin =  Channel.value(Fastq_dir)
 
-}
+	to_make_bin =  Channel.value(Fastq_dir)
+
+
 
 // ------------------------------------------------------------------------------
 //                    		    Binning
@@ -316,40 +316,106 @@ if (params.mode == "Taxonomic") {
 process binning {
         publishDir workingdir, mode: 'copy', pattern: "*.txt"
         input:
-        file(path) from to_bin//.take(1)
+        file(path) from to_make_bin
         
         output:
-        file "OTUs.txt"
-
+        file "OTUs.txt" into to_classify
+	file "OTUs.txt"
 	when:
-	params.mode == "Taxonomic" || params.mode == "Complete"
+	params.mode == "Taxonomic"
 	script:
 	"""
         #Measures execution time
         sysdate=\$(date)
         starttime=\$(date +%s.%N)
-        #echo \"Performing Quality Control. STEP 2 [Trimming] at \$sysdate\" >>  $mylog
-        #echo \" \" >>  $mylog
-
-
-	#echo $path > OTUs.txt
-	#Rscript --vanilla /storage/raid/home/m991833/16sMP/Pipeline/Scripts/dada3.R $path OTUs.txt
+        echo \" Performing sequencing binning with DADA2 at \$sysdate\" >>  $mylog
+        echo \" \" >>  $mylog
 	CMD=\" Rscript --vanilla /storage/raid/home/m991833/16sMP/Pipeline/Scripts/dada3.R $workingdir/$path OTUs.txt \"
 	exec \$CMD 2>&1 | tee tmp.log
 
 	#Logs some data about sequence dereplication
-	#echo  \"Dada2 dereplication stats: \" >> $mylog
+	echo  \"Dada2 dereplication stats: \" >> $mylog
 	echo \" \" >>  $mylog
-	#totR=\$(grep \"Encountered\" tmp.log | cut -f 2,6)
-	echo \$(grep \"Encountered\" tmp.log | sed -r 's/(Encountered | uniquen.{1,}//')  >>  $mylog
-#	totR=\$(grep \"Reads In:\" tmp.log | cut -f 1 | cut -d: -f 2 | sed 's/ //g')
-#	cat tmp.log >> $mylog
 
-	#sed -n '/Dereplicating sequence in:/,/Duplicates Found:/p' tmp.log >>  $mylog
+	cat tmp.log >> $mylog
+
+
 
 	"""
 
 }
+
+process complete_binning {
+        publishDir workingdir, mode: 'copy', pattern: "*.txt"
+        input:
+        file(path) from to_bin.take(1)
+
+        output:
+        file "OTUs.txt"
+
+        when:
+        params.mode == "Complete"
+        script:
+        """
+        #Measures execution time
+        sysdate=\$(date)
+        starttime=\$(date +%s.%N)
+	echo \" Performing sequencing binning with DADA2  at \$sysdate\"
+        echo \" \" >>  $mylog
+
+
+
+
+        CMD=\" Rscript --vanilla /storage/raid/home/m991833/16sMP/Pipeline/Scripts/dada3.R $workingdir/$path OTUs.txt \"
+        exec \$CMD 2>&1 | tee tmp.log
+
+        #Logs some data about sequence dereplication
+        echo  \"Dada2 dereplication stats: \" >> $mylog
+        echo \" \" >>  $mylog
+
+
+
+        cat tmp.log >> $mylog
+
+
+
+        """
+
+}
+
+process classification {
+        publishDir workingdir, mode: 'copy', pattern: "*.txt"
+        input:
+        file(OTU) from to_classify
+
+        output:
+        file "*.tsv"
+	//file "*.fasta"
+
+        when:
+        params.mode == "Complete" || params.mode == "Taxonomic"
+        script:
+        """
+        #Measures execution time
+	sysdate=\$(date)
+	starttime=\$(date +%s.%N)
+	#echo \"Performing Taxonomic classification at \$sysdate\" >>  $mylog
+	#echo \" \" >>  $mylog
+
+
+	echo \"Retrieving OTU table and fasta file of representative sequences \"	
+	python ./Scripts/DadatoOtu.py $OTU OTU.tsv # Representative.fasta
+	
+	echo \"Converting OTU.txt into OTU.biom
+	#CMD = \" biom convert -i OTU.txt table.from_txt_json.biom --table-type='OTU table' --to-json -o OTU.biom \"
+	#exec \$CMD 2>&1 | tee tmp.log
+
+
+        """
+
+}
+
+
 
 // ------------------------------------------------------------------------------
 //                     Quality assessment and visualization                    
@@ -379,39 +445,4 @@ process qualityAssessment {
 	
 	"""	
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-	
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
