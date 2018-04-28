@@ -35,7 +35,7 @@ if (params.help) {
 	System.out.println("    [--reads_R2] R2      Path for reverse reads (library = paired-end)")
 	System.out.println("    --prefix   prefix  Prefix used to name the result files")
 	System.out.println("    --outdir   path    Output directory (will be outdir/prefix/date)")
-	System.out.println("    --mode     <QC|complete>")
+	System.out.println("    --mode     <QC|Taxonomic|Complete>")
 	System.out.println("Options:")
 	System.out.println("    --library <single-end|paired-end>")
 	System.out.println("    --dedup         <true|false>   whether to perform de-duplication")
@@ -62,8 +62,8 @@ if (params.help) {
 
 
 //Checking user-defined parameters	
-if (params.mode != "QC" && params.mode != "complete") {
-	exit 1, "Mode not available. Choose any of <QC, characterisation, complete>"
+if (params.mode != "QC" && params.mode != "Taxonomic" && params.mode != "Complete") {
+	exit 1, "Mode not available. Choose any of <QC, Taxonomic, Complete>"
 }	
 
 if (params.library != "paired-end" && params.library != "single-end") { 
@@ -117,11 +117,6 @@ if( !Fastq_dir.exists() ) {
         exit 1, "Cannot create working directory: $Fastq_path"
  } 
 }
-
-
-
-
-
 
 
 //Creates main log file
@@ -226,8 +221,6 @@ mocktrim = Channel.from("null")
                 to_trim = Channel.fromPath(params.reads_R1 + '*.fastq')
         }
 
-
-
 process trim {
 	publishDir Fastq_dir, mode: 'copy', pattern: "*{_trimmed_R*.fq,html}"
 	input:
@@ -242,7 +235,7 @@ process trim {
 	file "*_fastqc.html"
 	val Fastq_dir into to_bin
 	when:
-	params.mode == "QC" || params.mode == "complete"
+	params.mode == "QC" || params.mode == "Complete"
       script:
       """
 	#Measures execution time
@@ -310,6 +303,12 @@ fi
 	"""
 }
 
+
+if (params.mode == "Taxonomic") {
+	to_bin =  Channel.value(Fastq_dir)
+
+}
+
 // ------------------------------------------------------------------------------
 //                    		    Binning
 // ------------------------------------------------------------------------------
@@ -317,31 +316,37 @@ fi
 process binning {
         publishDir workingdir, mode: 'copy', pattern: "*.txt"
         input:
-        file(path) from to_bin.take(1)
+        file(path) from to_bin//.take(1)
         
         output:
         file "OTUs.txt"
 
+	when:
+	params.mode == "Taxonomic" || params.mode == "Complete"
 	script:
 	"""
         #Measures execution time
         sysdate=\$(date)
         starttime=\$(date +%s.%N)
-        echo \"Performing Quality Control. STEP 2 [Trimming] at \$sysdate\" >>  $mylog
-        echo \" \" >>  $mylog
+        #echo \"Performing Quality Control. STEP 2 [Trimming] at \$sysdate\" >>  $mylog
+        #echo \" \" >>  $mylog
 
 
-
-	CMD=\"Rscript --vanilla /storage/raid/home/m991833/16sMP/Pipeline/Scripts/dada3.R $params.outdir$path OTUs.txt\"
+	#echo $path > OTUs.txt
+	#Rscript --vanilla /storage/raid/home/m991833/16sMP/Pipeline/Scripts/dada3.R $path OTUs.txt
+	CMD=\" Rscript --vanilla /storage/raid/home/m991833/16sMP/Pipeline/Scripts/dada3.R $workingdir/$path OTUs.txt \"
 	exec \$CMD 2>&1 | tee tmp.log
 
 	#Logs some data about sequence dereplication
-	echo  \"Dada2 dereplication stats: \" >> $mylog
+	#echo  \"Dada2 dereplication stats: \" >> $mylog
 	echo \" \" >>  $mylog
-	cat tmp.log >> $mylog
+	#totR=\$(grep \"Encountered\" tmp.log | cut -f 2,6)
+	echo \$(grep \"Encountered\" tmp.log | sed -r 's/(Encountered | uniquen.{1,}//')  >>  $mylog
+#	totR=\$(grep \"Reads In:\" tmp.log | cut -f 1 | cut -d: -f 2 | sed 's/ //g')
+#	cat tmp.log >> $mylog
+
 	#sed -n '/Dereplicating sequence in:/,/Duplicates Found:/p' tmp.log >>  $mylog
 
-	#echo $params.outdir$path > teste4.txt
 	"""
 
 }
@@ -364,7 +369,7 @@ process qualityAssessment {
 	output:
 	file "*_fastqc.html" 
 	when:
-	params.mode == "QC" | params.mode == "complete"
+	params.mode == "QC" | params.mode == "Complete"
    	script:
 	"""	
 	
