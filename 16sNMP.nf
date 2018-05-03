@@ -360,7 +360,7 @@ process complete_binning {
         #Measures execution time
         sysdate=\$(date)
         starttime=\$(date +%s.%N)
-	echo \" Performing sequencing binning with DADA2  at \$sysdate\"
+	echo \" Performing sequencing binning with DADA2  at \$sysdate\" >> $mylog
         echo \" \" >>  $mylog
 
 
@@ -384,13 +384,14 @@ process complete_binning {
 }
 
 process classification {
-        publishDir workingdir, mode: 'copy', pattern: "*{tsv,fasta}"
+        publishDir workingdir, mode: 'copy', pattern: "*{.tsv,.fasta,.biom}"
         input:
         file(OTU) from to_classify
 
         output:
         file "*.tsv"
-	//file "*.fasta"
+	file "*.fasta"
+	file "*.biom"
 
         when:
         params.mode == "Complete" || params.mode == "Taxonomic"
@@ -399,17 +400,22 @@ process classification {
         #Measures execution time
 	sysdate=\$(date)
 	starttime=\$(date +%s.%N)
-	#echo \"Performing Taxonomic classification at \$sysdate\" >>  $mylog
-	#echo \" \" >>  $mylog
+	echo \"Performing Taxonomic classification at \$sysdate\" > log_class.txt
+	echo \" \" >>  log_class.txt
 
 
-	echo \"Retrieving OTU table and fasta file of representative sequences \"	
+	echo \"Retrieving OTU table and fasta file of representative sequences \" log_class.txt
+	echo \" \" >>  log_class.txt
 	DadatoOtu.py $OTU OTU.tsv Representatives.fasta
+	echo \"Done\" >> log_class.txt
 	
-	echo \"Converting OTU.txt into OTU.biom \"
-	#CMD = \" biom convert -i OTU.txt table.from_txt_json.biom --table-type='OTU table' --to-json -o OTU.biom \"
-	#exec \$CMD 2>&1 | tee tmp.log
+	echo \"Converting OTU.txt into OTU.biom \" >> log_class.txt
+	biom convert -i OTU.tsv --table-type='OTU table' --to-json -o OTU.biom
+	echo \"Done\" >> log_class.txt	
 
+
+	echo \"Performing Taxonomic classification with Qiime \"
+		
 
         """
 

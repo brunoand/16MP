@@ -66,30 +66,22 @@ RUN cd /tmp && \
     rm Miniconda-latest-Linux-x86_64.sh && \
     $CONDA_DIR/bin/conda install --yes conda
 
-# Install Jupyter notebook as bruno
 RUN conda install --yes --quiet \
+    terminado \
+    r=3.4.3 \
     numpy \
     matplotlib \
     pandas \
     scipy \
-    r=3.4.1 \
     && conda clean -yt
 
-#RUN conda  update -c main -c r
-
-#Install Qiime
-
-RUN apt install -y --force-yes libsm6 libxext6 libxrender-dev
-RUN pip install --upgrade pip
-RUN pip install IPython==5.0
-RUN pip install wheel
-RUN pip install qiime 
-RUN pip install scikit-bio
+#RUN conda create -n renv -c r r=3.4.1
 
 #Install R libraries
+RUN apt install libcurl4-openssl-dev
 
 RUN Rscript -e "install.packages('optparse', repos = 'http://cran.us.r-project.org')" && \
-    Rscript -e "install.packages('devtools', repos = 'http://cran.us.r-project.org')" && \
+    Rscript -e "install.packages(c('devtools', 'curl'), repos = 'http://cran.us.r-project.org')" && \
     Rscript -e "install.packages('RcppParallel', repos = 'http://cran.us.r-project.org')" && \
     Rscript -e "install.packages('RJSONIO', repos = 'http://cran.us.r-project.org')" && \
     Rscript -e "devtools::install_github('biom', 'joey711')"
@@ -101,7 +93,6 @@ RUN Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("ggpl
     Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("dada2")' && \
     Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("DESeq2")' && \
     Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("rhdf5")'
-
 
 RUN apt-get install -t jessie-backports openjdk-8-jre-headless --yes
 
@@ -120,5 +111,20 @@ RUN wget -q -O BBMap_37.09.tar.gz https://sourceforge.net/projects/bbmap/files/B
 	mv bbmap/ /opt/ && \
 	rm BBMap_37.09.tar.gz
 
+#Add aditional scripts
+RUN git clone https://github.com/brunoand/16MP.git && \
+	chmod +x 16MP/Scripts/*.py && \
+	cp -R 16MP/Scripts/ /opt/
 
-ENV PATH $PATH:/opt/::/opt/FastQC/:/opt/bbmap
+#Install Qiime
+RUN apt install libgl1-mesa-glx --yes
+RUN pip install Cython
+RUN apt install -y --force-yes libsm6 libxext6 libxrender-dev
+RUN pip install --upgrade pip
+RUN pip install IPython==5.0
+RUN pip install wheel
+RUN pip install qiime
+RUN pip install scikit-bio
+
+
+ENV PATH $PATH:/opt/::/opt/FastQC/:/opt/bbmap:/opt/Scripts
