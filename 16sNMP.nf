@@ -384,7 +384,7 @@ process complete_binning {
 }
 
 process classification {
-        publishDir workingdir, mode: 'copy', pattern: "*.txt"
+        publishDir workingdir, mode: 'copy', pattern: "*{tsv,fasta}"
         input:
         file(OTU) from to_classify
 
@@ -404,9 +404,9 @@ process classification {
 
 
 	echo \"Retrieving OTU table and fasta file of representative sequences \"	
-	python ./Scripts/DadatoOtu.py $OTU OTU.tsv # Representative.fasta
+	DadatoOtu.py $OTU OTU.tsv Representatives.fasta
 	
-	echo \"Converting OTU.txt into OTU.biom
+	echo \"Converting OTU.txt into OTU.biom \"
 	#CMD = \" biom convert -i OTU.txt table.from_txt_json.biom --table-type='OTU table' --to-json -o OTU.biom \"
 	#exec \$CMD 2>&1 | tee tmp.log
 
