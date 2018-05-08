@@ -1,5 +1,3 @@
-#!/usr/bin/env nextflow
-	
 /**
 	Nsilico Another Metagenomic Pipeline (NMP)
 	Copyright (C) 2018 	Dr Bruno Andrade 	      
@@ -96,26 +94,33 @@ matrixpath = params.outdir + "/Matrix"
 QCpath = params.outdir + "/QC"
 Fastq_path = params.outdir + "/Fastq"
 Binpath = params.outdir + "/Bin"
+Qiimepath = params.outdir + "/Qiime"
+
 matrixdir = file(matrixpath)
 QC_dir = file(QCpath)
 Fastq_dir = file(Fastq_path)
 Bindir = file(Binpath)
-
+Qiime_dir = file(Qiimepath)
 
 if( !matrixdir.exists() ) {
     if( !matrixdir.mkdirs() ) 	{
-        exit 1, "Cannot create working directory: $matrixpath"
+        exit 1, "Cannot create Matrix  directory: $matrixpath"
     } 
 }
 if( !QC_dir.exists() ) {
     if( !QC_dir.mkdirs() ) 	{
-        exit 1, "Cannot create working directory: $QCpath"
+        exit 1, "Cannot create QC directory: $QCpath"
     } 
 }
 if( !Fastq_dir.exists() ) {
     if( !Fastq_dir.mkdirs() ) 	{
-        exit 1, "Cannot create working directory: $Fastq_path"
+        exit 1, "Cannot create Fastq directory: $Fastq_path"
  } 
+}
+if( !Qiime_dir.exists() ) {
+    if( !Qiime_dir.mkdirs() )   {
+        exit 1, "Cannot create Qiime directory: $Qiime_path"
+ }
 }
 
 
@@ -383,11 +388,18 @@ process complete_binning {
 
 }
 
+to_Reference = Channel.from(params.table)
+
+
 process classification {
-        publishDir workingdir, mode: 'copy', pattern: "*{.tsv,.fasta,.biom}"
+        publishDir Qiime_dir, mode: 'copy', pattern: "*{.tsv,.fasta,.biom}"
         input:
         file(OTU) from to_classify
+        file(Ref_fasta) from file(params.reference)
+        file(Tax_table) from file(params.table)
 
+
+	
         output:
         file "*.tsv"
 	file "*.fasta"
@@ -413,9 +425,11 @@ process classification {
 	biom convert -i OTU.tsv --table-type='OTU table' --to-json -o OTU.biom
 	echo \"Done\" >> log_class.txt	
 
-
+	echo \" \"
 	echo \"Performing Taxonomic classification with Qiime \"
-		
+	assign_taxonomy.py -i Representatives.fasta -r $Ref_fasta -t $Tax_table -o $Qiime_dir
+	#exec \$CMD 2>&1 | tee log_class.txt
+
 
         """
 

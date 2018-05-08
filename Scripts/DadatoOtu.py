@@ -13,4 +13,4 @@ table2 = table
 table2['Header'] = table['OTU'].replace('^', '>', regex = True)
 OTU_fasta = table2[['Header','Sequences']]
 OTU_fasta.set_index('Header').to_csv(Fasta, sep = '\n', header = False)
-table.drop(['Sequences'], axis = 1).set_index('OTU').to_csv(Output, sep = '\t')
+table.drop(['Sequences', 'Header'], axis = 1).set_index('OTU').to_csv(Output, sep = '\t')
