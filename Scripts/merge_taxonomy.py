@@ -19,4 +19,4 @@ Pattern = {"D_0":"d", "D_1":"p", "D_2":"c", "D_3":"o", "D_4":"f", "D_5":"g", "D_
 
 Taxonomy['Taxonomy']= replace_all(Taxonomy['Taxonomy'], Pattern)
 #print(OTU_table)
-Taxonomy.merge(OTU_table, right_on='OTU ID', left_on = 'OTU').drop(['Size'], axis=1).set_index('OTU').to_csv('OTU_table_taxonomy.txt', sep = '\t')
+Taxonomy.merge(OTU_table, right_on='OTU', left_on = 'OTU').drop(['Size'], axis=1).set_index('OTU').to_csv('OTU_table_taxonomy.txt', sep = '\t')
