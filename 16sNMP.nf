@@ -31,7 +31,7 @@ if (params.help) {
 	System.out.println("Mandatory arguments:")
 	System.out.println("    --reads_R1   R1      Path for forward reads (library = paired-end) or for all reads (library = single-end")
 	System.out.println("    [--reads_R2] R2      Path for reverse reads (library = paired-end)")
-	System.out.println("    --prefix   prefix  Prefix used to name the result files")
+	System.out.println("    --metadata   metadata Sample metadata")
 	System.out.println("    --outdir   path    Output directory (will be outdir/prefix/date)")
 	System.out.println("    --mode     <QC|Taxonomic|Complete>")
 	System.out.println("Options:")
@@ -397,7 +397,7 @@ process classification {
         file(OTU) from to_classify
         file(Ref_fasta) from file(params.reference)
         file(Tax_table) from file(params.table)
-
+	file(Meta) from file(params.metadata)
 
 	
         output:
@@ -429,7 +429,9 @@ process classification {
 	echo \"Performing Taxonomic classification with Qiime \"
 	assign_taxonomy.py -i Representatives.fasta -r $Ref_fasta -t $Tax_table -o $Qiime_dir
 	#exec \$CMD 2>&1 | tee log_class.txt
-
+	merge_taxonomy.py OTU.tsv $Qiime_dir/Representatives_tax_assignments.txt OTU_tax.tsv
+	echo \" \"
+	
 
         """
 

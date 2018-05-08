@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import skbio
 import pandas as pd
 from skbio.stats.distance import DistanceMatrix
