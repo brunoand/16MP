@@ -95,12 +95,13 @@ QCpath = params.outdir + "/QC"
 Fastq_path = params.outdir + "/Fastq"
 Binpath = params.outdir + "/Bin"
 Qiimepath = params.outdir + "/Qiime"
-
+PlotPath = params.outdir + "/Plots"
 matrixdir = file(matrixpath)
 QC_dir = file(QCpath)
 Fastq_dir = file(Fastq_path)
 Bindir = file(Binpath)
 Qiime_dir = file(Qiimepath)
+Plot_dir = file(PlotPath)
 
 if( !matrixdir.exists() ) {
     if( !matrixdir.mkdirs() ) 	{
@@ -122,6 +123,13 @@ if( !Qiime_dir.exists() ) {
         exit 1, "Cannot create Qiime directory: $Qiime_path"
  }
 }
+if( !Plot_dir.exists() ) {
+    if( !Plot_dir.mkdirs() )   {
+        exit 1, "Cannot create Plot directory: $Plot_path"
+ }
+}
+
+
 
 
 //Creates main log file
@@ -392,7 +400,7 @@ to_Reference = Channel.from(params.table)
 
 
 process classification {
-        publishDir Qiime_dir, mode: 'copy', pattern: "*{.tsv,.fasta,.biom}"
+        publishDir Qiime_dir, mode: 'copy', pattern: "*{.tsv,.fasta,.biom,.tre}"
         input:
         file(OTU) from to_classify
         file(Ref_fasta) from file(params.reference)
@@ -401,9 +409,12 @@ process classification {
 
 	
         output:
+	file "OTU.biom" into to_diversity
+	file "Representatives.tre" into to_tree
         file "*.tsv"
 	file "*.fasta"
 	file "*.biom"
+	file "*.tre"
 
         when:
         params.mode == "Complete" || params.mode == "Taxonomic"
@@ -418,7 +429,7 @@ process classification {
 
 	echo \"Retrieving OTU table and fasta file of representative sequences \" log_class.txt
 	echo \" \" >>  log_class.txt
-	DadatoOtu.py $OTU OTU.tsv Representatives.fasta
+	DadatoOtu.py $workingdir/OTUs.txt OTU.tsv Representatives.fasta
 	echo \"Done\" >> log_class.txt
 	
 	echo \"Converting OTU.txt into OTU.biom \" >> log_class.txt
@@ -431,13 +442,42 @@ process classification {
 	#exec \$CMD 2>&1 | tee log_class.txt
 	merge_taxonomy.py OTU.tsv $Qiime_dir/Representatives_tax_assignments.txt OTU_tax.tsv
 	echo \" \"
-	
+	mafft --thread ${task.cpus} Representatives.fasta > Representatives_aligned.fasta
+	make_phylogeny.py -i Representatives_aligned.fasta -t fasttree -o Representatives.tre
 
         """
 
 }
 
+process diversity {
 
+        publishDir matrixdir, mode: 'copy', pattern: "*{.txt,.biom}"
+	publishDir Plot_dir, mode: 'copy', pattern: "*{.png,.pdf}"
+        input:
+        file(OTU) from to_diversity
+        file(Tree) from to_tree
+
+
+        output:
+        file "*.biom"
+	file "*.txt"
+
+        when:
+        params.Normalization == "Rarefaction"
+        script:
+        """
+	#Measures execution time
+        sysdate=\$(date)
+        starttime=\$(date +%s.%N)
+        echo \"Performing Normalization and Diversity analyses at \$sysdate\" > log_class.txt
+        echo \" \" >>  log_Diversity.txt
+	single_rarefaction.py -i $OTU -o OTU_table_even${params.Depth}.biom -d $params.Depth
+	#alpha_diversity.py -i $OTU -m $params.alpha_metrics -t $Tree -o Alpha_diversity${params.alpha_metrics}.txt
+	beta_diversity.py -i OTU_table_even${params.Depth}.biom -m weighted_unifrac -t $Tree -o .
+	beta_diversity.py -i OTU_table_even${params.Depth}.biom -m unweighted_unifrac -t $Tree -o .
+	#PCoA.py weighted_unifrac_OTU_table_even100.txt $params.metadata .
+	"""
+}
 
 // ------------------------------------------------------------------------------
 //                     Quality assessment and visualization                    
