@@ -343,7 +343,7 @@ process binning {
         starttime=\$(date +%s.%N)
         echo \" Performing sequencing binning with DADA2 at \$sysdate\" >>  $mylog
         echo \" \" >>  $mylog
-	CMD=\" Rscript --vanilla /storage/raid/home/m991833/16sMP/Pipeline/Scripts/dada3.R $workingdir/$path OTUs.txt \"
+	CMD=\" Rscript dada2.R $workingdir/$path OTUs.txt \"
 	exec \$CMD 2>&1 | tee tmp.log
 
 	#Logs some data about sequence dereplication
@@ -379,7 +379,7 @@ process complete_binning {
 
 
 
-        CMD=\" Rscript --vanilla /storage/raid/home/m991833/16sMP/Pipeline/Scripts/dada3.R $workingdir/$path OTUs.txt \"
+        CMD=\" Rscript dada2.R $workingdir/$path OTUs.txt \"
         exec \$CMD 2>&1 | tee tmp.log
 
         #Logs some data about sequence dereplication
@@ -401,6 +401,7 @@ to_Reference = Channel.from(params.table)
 
 process classification {
         publishDir Qiime_dir, mode: 'copy', pattern: "*{.tsv,.fasta,.biom,.tre}"
+	publishDir Plot_dir, mode: 'copy', pattern: "*{.png,.pdf}"
         input:
         file(OTU) from to_classify
         file(Ref_fasta) from file(params.reference)
@@ -415,6 +416,8 @@ process classification {
 	file "*.fasta"
 	file "*.biom"
 	file "*.tre"
+	file "*.png"
+	file "*.pdf"
 
         when:
         params.mode == "Complete" || params.mode == "Taxonomic"
@@ -440,7 +443,7 @@ process classification {
 	echo \"Performing Taxonomic classification with Qiime \"
 	assign_taxonomy.py -i Representatives.fasta -r $Ref_fasta -t $Tax_table -o $Qiime_dir
 	#exec \$CMD 2>&1 | tee log_class.txt
-	merge_taxonomy.py OTU.tsv $Qiime_dir/Representatives_tax_assignments.txt OTU_tax.tsv
+	merge_taxonomy.py OTU.tsv $Qiime_dir/Representatives_tax_assignments.txt OTU_tax.tsv .
 	echo \" \"
 	mafft --thread ${task.cpus} Representatives.fasta > Representatives_aligned.fasta
 	make_phylogeny.py -i Representatives_aligned.fasta -t fasttree -o Representatives.tre
