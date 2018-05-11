@@ -3,7 +3,7 @@
 import skbio
 import pandas as pd
 from skbio.stats.distance import DistanceMatrix
-from skbio.stats.ordination import pcoa
+from skbio.stats.ordination import PCoA
 import warnings
 import sys
 
@@ -13,7 +13,7 @@ Output = sys.argv[3]
 warnings.filterwarnings("ignore")
 metadata = pd.read_csv(Meta, sep = '\t', index_col = 0)
 my_obj =  DistanceMatrix.read(Input, 'lsmat')
-PC = pcoa(my_obj)
+PC = PCoA(my_obj)
 
 
 
