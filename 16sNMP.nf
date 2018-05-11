@@ -343,7 +343,7 @@ process binning {
         starttime=\$(date +%s.%N)
         echo \" Performing sequencing binning with DADA2 at \$sysdate\" >>  $mylog
         echo \" \" >>  $mylog
-	CMD=\" Rscript dada2.R $workingdir/$path OTUs.txt \"
+	CMD=\" Rscript /opt/Scripts/dada2.R $workingdir/$path OTUs.txt \"
 	exec \$CMD 2>&1 | tee tmp.log
 
 	#Logs some data about sequence dereplication
@@ -379,7 +379,7 @@ process complete_binning {
 
 
 
-        CMD=\" Rscript dada2.R $workingdir/$path OTUs.txt \"
+        CMD=\" Rscript /opt/Scripts/dada2.R $workingdir/$path OTUs.txt \"
         exec \$CMD 2>&1 | tee tmp.log
 
         #Logs some data about sequence dereplication
@@ -416,8 +416,7 @@ process classification {
 	file "*.fasta"
 	file "*.biom"
 	file "*.tre"
-	file "*.png"
-	file "*.pdf"
+	file "*.{png,pdf}"
 
         when:
         params.mode == "Complete" || params.mode == "Taxonomic"
@@ -443,10 +442,11 @@ process classification {
 	echo \"Performing Taxonomic classification with Qiime \"
 	assign_taxonomy.py -i Representatives.fasta -r $Ref_fasta -t $Tax_table -o $Qiime_dir
 	#exec \$CMD 2>&1 | tee log_class.txt
-	merge_taxonomy.py OTU.tsv $Qiime_dir/Representatives_tax_assignments.txt OTU_tax.tsv .
+	#merge_taxonomy.py OTU.tsv $Qiime_dir/Representatives_tax_assignments.txt OTU_tax.tsv ./
 	echo \" \"
 	mafft --thread ${task.cpus} Representatives.fasta > Representatives_aligned.fasta
 	make_phylogeny.py -i Representatives_aligned.fasta -t fasttree -o Representatives.tre
+	merge_taxonomy.py OTU.tsv $Qiime_dir/Representatives_tax_assignments.txt OTU_tax.tsv ./
 
         """
 
@@ -463,7 +463,7 @@ process diversity {
 
         output:
         file "*.biom"
-	file "*.txt"
+	file "*{.txt,.png}"
 
         when:
         params.Normalization == "Rarefaction"
@@ -478,7 +478,7 @@ process diversity {
 	#alpha_diversity.py -i $OTU -m $params.alpha_metrics -t $Tree -o Alpha_diversity${params.alpha_metrics}.txt
 	beta_diversity.py -i OTU_table_even${params.Depth}.biom -m weighted_unifrac -t $Tree -o .
 	beta_diversity.py -i OTU_table_even${params.Depth}.biom -m unweighted_unifrac -t $Tree -o .
-	#PCoA.py weighted_unifrac_OTU_table_even100.txt $params.metadata .
+	PCoA.py weighted_unifrac_OTU_table_even100.txt $params.metadata .
 	"""
 }
 

@@ -1,3 +1,5 @@
+#!/usr/local/bin/Rscript
+
 #Importing libraries
 library(dada2)
 

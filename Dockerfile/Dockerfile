@@ -132,9 +132,9 @@ RUN wget -q -O BBMap_37.09.tar.gz https://sourceforge.net/projects/bbmap/files/B
 	rm BBMap_37.09.tar.gz
 
 #Add aditional scripts
-RUN git clone https://github.com/brunoand/16MP.git && \
-	chmod +x 16MP/Scripts/*.py && \
-	cp -R 16MP/Scripts/ /opt/
+#RUN git clone https://github.com/brunoand/16MP.git && \
+#	chmod +x 16MP/Scripts/*.py && \
+#	cp -R 16MP/Scripts/ /opt/
 
 RUN apt install python-setuptools --yes
 RUN apt install python-dev --yes
@@ -151,7 +151,13 @@ RUN pip install IPython==5.0
 RUN pip install wheel
 RUN pip install qiime
 RUN pip install scikit-bio
-RUN Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("dada2")'
+#RUN Rscript -e 'source("http://bioconductor.org/biocLite.R")' -e 'biocLite("dada2")'
+Run apt install mafft --yes
+RUN pip install seaborn
+#Add aditional scripts
+RUN git clone https://github.com/brunoand/16MP.git && \
+        chmod +x 16MP/Scripts/*.py && \
+        cp -R 16MP/Scripts/ /opt/
  
 
 ENV PATH $PATH:/opt/::/opt/FastQC/:/opt/bbmap:/opt/Scripts
