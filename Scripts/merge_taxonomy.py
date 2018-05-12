@@ -32,7 +32,7 @@ def rel_abundance(dataframe, tax_level, Output, Percentage):
     frame = dataframe.groupby(tax_level).sum()
     Df_Rel_ab = (frame*100)/frame.sum(axis=0)
     Df_Rel_ab['Mean'] = Df_Rel_ab.mean(axis = 1)
-    Df_Rel_ab = Df_Rel_ab[Df_Rel_ab.Mean >=Percentage]
+    Df_Rel_ab = Df_Rel_ab[Df_Rel_ab.Mean >= float(Percentage)]
     Df_Rel_ab = Df_Rel_ab.sort_values(by=['Mean'], ascending = False).drop(['Mean'], axis=1)
     sns.set(rc={'figure.figsize':(15,10)},font_scale = 2)
     sns.set_style("whitegrid", {'axes.grid' : False})
