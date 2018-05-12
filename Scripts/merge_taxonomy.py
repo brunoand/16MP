@@ -62,4 +62,4 @@ Pattern = {"D_0":"d", "D_1":"p", "D_2":"c", "D_3":"o", "D_4":"f", "D_5":"g", "D_
 Taxonomy['Taxonomy']= replace_all(Taxonomy['Taxonomy'], Pattern)
 Taxonomy = Taxonomy.merge(OTU_table, right_on='OTU', left_on = 'OTU').drop(['Size'], axis=1).set_index('OTU')
 Taxonomy.to_csv(Output, sep = '\t')
-plot = parse(Taxonomy, Output_plots)
+plot = parse(Taxonomy, Output_plots, Percentage)
