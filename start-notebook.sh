@@ -14,8 +14,8 @@ if [ $UID == 0 ] ; then
  fi 
  
  # Start the notebook server 
- exec su $NB_USER -c "env PATH=$PATH jupyter notebook $*" 
+ exec su $NB_USER -c "env PATH=$PATH jupyter lab $*" 
 else 
  # Otherwise just exec the notebook 
- exec jupyter notebook $* 
+ exec jupyter lab $* 
 fi
