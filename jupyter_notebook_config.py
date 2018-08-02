@@ -10,7 +10,7 @@ PEM_FILE = os.path.join(jupyter_data_dir(), 'notebook.pem')
 c = get_config() 
 c.NotebookApp.ip = '*' 
 c.NotebookApp.port = 8888 
-c.NotebookApp.open_browser = True
+c.NotebookApp.open_browser = False
 
  
 # Set a certificate if USE_HTTPS is set to any value 
